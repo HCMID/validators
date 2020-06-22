@@ -7,9 +7,13 @@ import edu.holycross.shot.scm._
 
 import scala.xml._
 
-class TeiPersNameValidatorrSpec extends FlatSpec {
+class TeiPersNameValidatorSpec extends FlatSpec {
 
 
+  val libraryShell = CiteLibrary("unit test",
+  Cite2Urn("urn:cite2:mid:validatortests.v1:minimum"),
+  "public domeain", Vector.empty[CiteNamespace]
+ )
   val xml = """<div n="1"><ab>Text including name of <persName n="urn:cite2:dummy:test.v1:1">Agamemnon</persName></ab></div>"""
   val root = XML.loadString(xml)
   val expectedId = Cite2Urn("urn:cite2:du//mmy:test.v1:1")
@@ -20,7 +24,7 @@ class TeiPersNameValidatorrSpec extends FlatSpec {
   "The TeiNamedEntityValidator object" should "recursively test  elements of a specified name in XML containers"  in  {
     val expectedSize = 1
     val expectedText = "Agamemnon"
-    val validator = TeiNamedEntityValidator(validIds, "persName")
+    val validator = TeiNamedEntityValidator(libraryShell, validIds, "persName")
     val actual = validator.validateXmlNode(textUrn, root)
     println(actual)
 

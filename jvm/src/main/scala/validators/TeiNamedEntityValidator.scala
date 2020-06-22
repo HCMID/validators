@@ -14,6 +14,7 @@ import wvlet.log._
 import scala.annotation.tailrec
 
 case class TeiNamedEntityValidator(
+  library: CiteLibrary,
   authList: Vector[Urn],
   elementName: String,
   typeAttribute: Option[String] = None)
@@ -21,25 +22,29 @@ case class TeiNamedEntityValidator(
 
   require(authList.nonEmpty, "Cannot validate named entity identifiers: authority list is empty!")
 
-  def cite2authList: Boolean = {
-    authList.head match {
-      case c2: Cite2Urn => true
-      case _ => false
-    }
-  }
 
-  def ctsAuthList: Boolean  = {
-    (! cite2authList)
-  }
-
+  // required
   def label = "Validator for named entities with URN disambiguation"
-
+  // required
   def validate(library: CiteLibrary) : Vector[TestResult[String]] = Vector.empty[TestResult[String]]
-
+  // required
   def validate(surface: Cite2Urn) : Vector[TestResult[String]] = Vector.empty[TestResult[String]]
-
+  //required
   def verify(surface: Cite2Urn) : String = {""}
 
+
+
+    def cite2authList: Boolean = {
+      authList.head match {
+        case c2: Cite2Urn => true
+        case _ => false
+      }
+    }
+
+    def ctsAuthList: Boolean  = {
+      (! cite2authList)
+    }
+    
   def urnValue(urnString: String): Urn = {
     if (cite2authList) {
       Cite2Urn(urnString)
