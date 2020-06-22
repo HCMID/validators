@@ -18,23 +18,22 @@ case class TeiNamedEntityValidator(
   library: CiteLibrary,
   authList: Vector[Urn],
   elementName: String,
-  typeAttribute: Option[String] = None)
-  extends CiteValidator[String]  with LogSupport {
+  typeAttribute: Option[Urn] = None)
+  extends CiteValidator[Urn]  with LogSupport {
 
   require(authList.nonEmpty, "Cannot validate named entity identifiers: authority list is empty!")
-
 
   // required
   def label = "Validator for named entities with URN disambiguation"
   // required
-  def validate(library: CiteLibrary) : Vector[TestResult[String]] = {
+  def validate(library: CiteLibrary) : Vector[TestResult[Urn]] = {
     val validatedNodes = library.textRepository.get.corpus.nodes.map(cn => validate(cn))
     validatedNodes.flatten
   }
 
 
   // required
-  def validate(surface: Cite2Urn) : Vector[TestResult[String]] = {
+  def validate(surface: Cite2Urn) : Vector[TestResult[Urn]] = {
     info(s"Validate named entities tagged as ${elementName} for " + surface + " : start computing DSE relations...")
     val surfaceDse = dsev.passages.filter(_.surface == surface)
     info("Done. Now validating " + surfaceDse.size + " text passages.")
@@ -50,10 +49,29 @@ case class TeiNamedEntityValidator(
    }
 
   //required
-  def verify(surface: Cite2Urn) : String = {""}
+  def verify(surface: Cite2Urn) : String = {
+    val hdr = s"# Verification for ${surface.objectComponent}\n\n## Named entity verification\n\nOn **${surface}**, disambiguation of named entities tagged as `${elementName}`\n\n"
+    val goodResults = validate(surface).filter(_.success)
+    val clustered = goodResults.groupBy(_.unit).toVector.sortBy{ case (u,items) => u.toString}
+    val mdLists = clustered.map{ case (u, items) => s"- **${u}**\n" +
+                    items.map(tr => s"    - ${tr.summary}").mkString("\n") + "\n"
+    }
 
 
-  def validate(cn: CitableNode): Vector[TestResult[String]] = {
+
+    //hdr + goodResults.mkString("\n") + "\n"
+    //goodResults.map(tr => )
+    hdr + mdLists.mkString("\n")
+  }
+
+
+  // MD list item for a test result
+  def verifyCluster(tr: TestResult[Urn]): String = {
+    ""
+  }
+
+
+  def validate(cn: CitableNode): Vector[TestResult[Urn]] = {
     val root = XML.loadString(cn.text)
     validateXmlNode(cn.urn, root)
   }
@@ -73,6 +91,15 @@ case class TeiNamedEntityValidator(
     (! cite2authList)
   }
 
+
+  def nullValue: Urn = {
+    authList.head match {
+      case c2: Cite2Urn => c2.dropSelector.addSelector("null")
+      case cts: CtsUrn => cts.dropPassage
+    }
+  }
+
+
   def urnValue(urnString: String): Urn = {
     if (cite2authList) {
       Cite2Urn(urnString)
@@ -85,8 +112,8 @@ case class TeiNamedEntityValidator(
   def validateXmlNode(
     context: CtsUrn,
     n: xml.Node,
-    results: Vector[TestResult[String]] = Vector.empty[TestResult[String]]) : Vector[TestResult[String]] = {
-    val newResults : Vector[TestResult[String]] = n match {
+    results: Vector[TestResult[Urn]] = Vector.empty[TestResult[Urn]]) : Vector[TestResult[Urn]] = {
+    val newResults : Vector[TestResult[Urn]] = n match {
       case t: xml.Text =>  {
         results
       }
@@ -104,10 +131,10 @@ case class TeiNamedEntityValidator(
               val success = authList.contains(urnObject)
               val newResult =  success  match {
                 case true => {
-                  TestResult(true, s"${context}: valid URN ${urnObject} on ${text}", text)
+                  TestResult(true, s"*${text}* (${context})", urnObject)
                 }
                 case false => {
-                  TestResult(false, s"${context}: ${urnObject} on ${text} is not in authority list", text)
+                  TestResult(false, s"*${text}* (${context}): ${urnObject} is not in authority list", urnObject)
                 }
               }
               val augmented = results  :+ newResult
@@ -118,8 +145,8 @@ case class TeiNamedEntityValidator(
               case t: Throwable => {
                 debug("FAILED on " + e)
                 val failure = TestResult(false,
-                  s"${context}: could not parse URN on element ${elementName}",
-                 text)
+                  s"*${text}* (${context}): could not parse URN on element ${elementName}",
+                 nullValue)
                 results :+ failure
               }
             }
@@ -139,11 +166,4 @@ case class TeiNamedEntityValidator(
      newResults
   }
 
-/*
-  def indexedNode(cn: CitableNode): Set[CiteTriple] = {
-    val root = XML.loadString(cn.text)
-    val nameSet = indexedNames(cn.urn, root)
-    nameSet.toVector.map(n => nameToTriple(n)).toSet
-  }
-  */
 }

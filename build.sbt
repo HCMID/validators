@@ -13,7 +13,7 @@ lazy val root = project.in(file(".")).
 
 lazy val crossed = crossProject(JSPlatform, JVMPlatform).in(file(".")).
     settings(
-      name := "markupindexer",
+      name := "validators",
       organization := "edu.holycross.shot.mid",
       version := "0.0.1",
       licenses += ("GPL-3.0",url("https://opensource.org/licenses/gpl-3.0.html")),

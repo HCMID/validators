@@ -26,13 +26,15 @@ class TeiPersNameValidatorSpec extends FlatSpec {
     val textUrn = CtsUrn("urn:cts:dummy:madeUp.v1:1")
     val actual = validator.validateXmlNode(textUrn, root)
 
-    val expectedId = Cite2Urn("urn:cite2:du//mmy:test.v1:1")
+    val expectedId = Cite2Urn("urn:cite2:mid:namedentityunits.v1:1")
     val expectedSize = 1
     val expectedText = "Agamemnon"
 
     assert(actual.size == expectedSize)
-    assert(actual.head.unit == expectedText)
+    assert(actual.head.unit == expectedId)
   }
+
+
 
   it should "identify an occurrence of the element without @n attribute as an error" in {
     val validIds = Vector(Cite2Urn("urn:cite2:mid:namedentityunits.v1:1"))
@@ -44,7 +46,7 @@ class TeiPersNameValidatorSpec extends FlatSpec {
     val actual = validator.validateXmlNode(textUrn, root)
     assert(actual.size == 1)
     assert(actual.head.success == false)
-    println(actual.head.summary.contains("could not parse URN on element persName"))
+    assert(actual.head.summary.contains("could not parse URN on element persName"))
   }
 
   it should "report if a syntactically valid URN does not appear in the authority list" in {
@@ -95,5 +97,7 @@ class TeiPersNameValidatorSpec extends FlatSpec {
 
 
   it should "determine if the authority list is comosed of Cite2Urns or CtsUrns" in pending
+
+
 
 }
