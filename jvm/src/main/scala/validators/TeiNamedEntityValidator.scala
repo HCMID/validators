@@ -5,6 +5,7 @@ import edu.holycross.shot.ohco2._
 import edu.holycross.shot.citerelation._
 import edu.holycross.shot.scm._
 import edu.holycross.shot.citevalidator._
+import edu.holycross.shot.dse._
 
 import edu.holycross.shot.xmlutils._
 import scala.xml._
@@ -26,25 +27,52 @@ case class TeiNamedEntityValidator(
   // required
   def label = "Validator for named entities with URN disambiguation"
   // required
-  def validate(library: CiteLibrary) : Vector[TestResult[String]] = Vector.empty[TestResult[String]]
+  def validate(library: CiteLibrary) : Vector[TestResult[String]] = {
+    val validatedNodes = library.textRepository.get.corpus.nodes.map(cn => validate(cn))
+    validatedNodes.flatten
+  }
+
+
   // required
-  def validate(surface: Cite2Urn) : Vector[TestResult[String]] = Vector.empty[TestResult[String]]
+  def validate(surface: Cite2Urn) : Vector[TestResult[String]] = {
+    info(s"Validate named entities tagged as ${elementName} for " + surface + " : start computing DSE relations...")
+    val surfaceDse = dsev.passages.filter(_.surface == surface)
+    info("Done. Now validating " + surfaceDse.size + " text passages.")
+    val validationResults  = for (psg <- surfaceDse.map(_.passage)) yield {
+      val matchedCorpus = corpus ~~ psg
+      val validatedNodes = for (cn <- matchedCorpus.nodes) yield {
+        val root = XML.loadString(cn.text)
+        validateXmlNode(cn.urn, root)
+      }
+      validatedNodes.flatten
+    }
+    validationResults.flatten
+   }
+
   //required
   def verify(surface: Cite2Urn) : String = {""}
 
 
+  def validate(cn: CitableNode): Vector[TestResult[String]] = {
+    val root = XML.loadString(cn.text)
+    validateXmlNode(cn.urn, root)
+  }
 
-    def cite2authList: Boolean = {
-      authList.head match {
-        case c2: Cite2Urn => true
-        case _ => false
-      }
-    }
 
-    def ctsAuthList: Boolean  = {
-      (! cite2authList)
+  lazy val corpus = library.textRepository.get.corpus
+  lazy val dsev = DseVector.fromCiteLibrary(library)
+
+  def cite2authList: Boolean = {
+    authList.head match {
+      case c2: Cite2Urn => true
+      case _ => false
     }
-    
+  }
+
+  def ctsAuthList: Boolean  = {
+    (! cite2authList)
+  }
+
   def urnValue(urnString: String): Urn = {
     if (cite2authList) {
       Cite2Urn(urnString)
