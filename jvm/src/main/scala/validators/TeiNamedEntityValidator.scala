@@ -13,48 +13,88 @@ import wvlet.log._
 
 import scala.annotation.tailrec
 
-case class TeiNamedEntityValidator(elementName: String, typeAttribute: Option[String] = None) extends CiteValidator[String]  with LogSupport {
+case class TeiNamedEntityValidator(
+  authList: Vector[Urn],
+  elementName: String,
+  typeAttribute: Option[String] = None)
+  extends CiteValidator[String]  with LogSupport {
+
+  require(authList.nonEmpty, "Cannot validate named entity identifiers: authority list is empty!")
+
+  def cite2authList: Boolean = {
+    authList.head match {
+      case c2: Cite2Urn => true
+      case _ => false
+    }
+  }
+
+  def ctsAuthList: Boolean  = {
+    (! cite2authList)
+  }
 
   def label = "Validator for named entities with URN disambiguation"
 
   def validate(library: CiteLibrary) : Vector[TestResult[String]] = Vector.empty[TestResult[String]]
 
   def validate(surface: Cite2Urn) : Vector[TestResult[String]] = Vector.empty[TestResult[String]]
-  
+
   def verify(surface: Cite2Urn) : String = {""}
 
+  def urnValue(urnString: String): Urn = {
+    if (cite2authList) {
+      Cite2Urn(urnString)
+    } else {
+      CtsUrn(urnString)
+    }
+  }
 
-/*
-  def indexedNames(context: CtsUrn, n: xml.Node, names: Vector[IndexedName] = Vector.empty[IndexedName]) : Vector[IndexedName]= {
-    val newNameList : Vector[IndexedName] = n match {
+  // collect Vector of TestResults from an XML node.
+  def validateXmlNode(
+    context: CtsUrn,
+    n: xml.Node,
+    results: Vector[TestResult[String]] = Vector.empty[TestResult[String]]) : Vector[TestResult[String]] = {
+    val newResults : Vector[TestResult[String]] = n match {
       case t: xml.Text =>  {
-        names
+        results
       }
 
       case e: xml.Elem =>  {
+        val text = TextReader.collectText(e)
         e.label match {
-          case "persName" => {
+          // Process matched element:
+          case `elementName` => {
             try {
-              val urn = e.attribute("n").head.text
-              val persName = TextReader.collectText(e)
-              debug("found " + urn + " " + persName)
-              val indexedName = IndexedName(context, Cite2Urn(urn), persName)
-              val augmented = names :+ indexedName
+              val urnText = e.attribute("n").head.text
+              val urnObject = urnValue(urnText)
+              debug("found " + urnObject + " " + text)
+
+              val success = authList.contains(urnObject)
+              val newResult =  success  match {
+                case true => {
+                  TestResult(true, s"${context}: valid URN ${urnObject} on ${text}", text)
+                }
+                case false => {
+                  TestResult(false, s"${context}: ${urnObject} on ${text} is not in authority list", text)
+                }
+              }
+              val augmented = results  :+ newResult
               debug("augmented list " + augmented)
               augmented
 
             } catch {
               case t: Throwable => {
                 debug("FAILED on " + e)
-                names
+                val failure = TestResult(false,
+                  s"${context}: could not parse URN on element ${elementName}",
+                 text)
+                results :+ failure
               }
             }
-            // get urn, get text, create IndexedName
-
           }
+          // Recurse:
           case _ => {
             val collected = for (ch <- e.child) yield {
-              indexedNames(context, ch, names)
+              validateXmlNode(context, ch, results)
             }
             debug("COLLECTED: " + collected.flatten)
             collected.toVector.flatten
@@ -62,9 +102,9 @@ case class TeiNamedEntityValidator(elementName: String, typeAttribute: Option[St
         }
       }
      }
-     debug("newNameList now " + newNameList)
-     newNameList
-  }*/
+     debug("new results now " + newResults)
+     newResults
+  }
 
 /*
   def indexedNode(cn: CitableNode): Set[CiteTriple] = {
